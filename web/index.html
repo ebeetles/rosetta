@@ -295,6 +295,37 @@ button, input, textarea, select { font: inherit; color: inherit; }
 footer { border-top: 1px solid var(--rule); padding: 18px 0 28px; font-size: 13px; color: var(--ink-faint); }
 footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
+/* ---------- scenery: ink-wash landscape behind everything ---------- */
+.masthead, main, footer { position: relative; z-index: 1; }
+.scenery { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; color: var(--ink); }
+.scenery .layer { position: absolute; inset: -40px -60px; will-change: transform; }
+.scenery svg { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; }
+.scenery .sun { color: var(--zh); }
+.scenery .mist {
+  position: absolute; left: -20%; width: 140%; height: 16vh; border-radius: 50%;
+  background: radial-gradient(closest-side, var(--paper) 0%, color-mix(in srgb, var(--paper) 70%, transparent) 45%, transparent 100%);
+}
+.scenery .inscription {
+  position: absolute; right: max(3vw, 24px); top: 16vh; display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.scenery .inscription span {
+  writing-mode: vertical-rl; font: 400 clamp(40px, 4.4vw, 64px)/1 var(--f-brush); letter-spacing: .12em;
+  color: var(--ink); opacity: .09;
+}
+.scenery .inscription i {
+  width: 30px; height: 30px; display: grid; place-items: center; font: 400 19px/1 var(--f-brush); font-style: normal;
+  background: var(--zh); color: var(--paper); border-radius: 3px; opacity: .32; transform: rotate(3deg);
+}
+.scenery .grain { position: absolute; inset: 0; opacity: .5; mix-blend-mode: multiply; }
+:root[data-theme="dark"] .scenery .grain { mix-blend-mode: screen; opacity: .25; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .scenery .grain { mix-blend-mode: screen; opacity: .25; } }
+@media (prefers-reduced-motion: no-preference) {
+  .scenery .mist { animation: drift 60s ease-in-out infinite alternate; }
+  .scenery .mist.m2 { animation-duration: 85s; animation-direction: alternate-reverse; }
+  @keyframes drift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
+}
+@media (max-width: 900px) { .scenery .inscription { display: none; } }
+
 /* ---------- small screens ---------- */
 @media (max-width: 760px) {
   .fork { grid-template-columns: 1fr; gap: 40px; }
@@ -311,6 +342,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 </style>
 </head>
 <body>
+<div class="scenery" id="scenery" aria-hidden="true"></div>
 <header class="wrap masthead">
   <a class="brand" href="#" aria-label="Idiom Rosetta, home">
     <span class="seal" aria-hidden="true">译</span>
@@ -779,6 +811,94 @@ function fromHash() {
 window.addEventListener("popstate", fromHash);
 applyShow();
 // An empty database can't answer anything yet, so start on the build.
+/* ---------- scenery ----------
+   A shan shui (mountain-and-water) ink landscape, drawn once as SVG from a fixed
+   seed: far, middle, and near ranges whose peaks are dark ink that dissolves into
+   mist at the base. Each layer has a depth; scrolling and the pointer move deeper
+   layers less, which gives the parallax. */
+function buildScenery() {
+  const root = $("#scenery");
+  const W = 1600, H = 900;
+  let seed = 20261026;
+  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+  // A ridge line: the max of several steep peaks, roughened by a smoothed random walk.
+  function ridge({ base, peaks, height, width, jag }) {
+    const ps = Array.from({ length: peaks }, (_, i) => ({
+      x: (i + 0.15 + rand() * 0.7) * (W / peaks), h: height * (0.4 + 0.6 * rand()), w: width * (0.6 + 0.8 * rand()),
+    }));
+    let walk = 0;
+    const pts = [];
+    for (let x = -10; x <= W + 10; x += 6) {
+      let y = 0;
+      for (const p of ps) y = Math.max(y, p.h * Math.exp(-Math.pow(Math.abs((x - p.x) / p.w), 1.35)));
+      walk = walk * 0.82 + (rand() - 0.5) * jag;
+      pts.push(`${x},${(base - y - walk * (0.35 + y / height)).toFixed(1)}`);
+    }
+    return `M-10,${H} L${pts.join(" L")} L${W + 10},${H} Z`;
+  }
+
+  const brush = (id, freq, scale, blur) => `
+    <filter id="${id}" x="-5%" y="-10%" width="110%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="3" seed="${Math.floor(rand() * 100)}"/>
+      <feDisplacementMap in="SourceGraphic" scale="${scale}" xChannelSelector="R" yChannelSelector="G"/>
+      ${blur ? `<feGaussianBlur stdDeviation="${blur}"/>` : ""}
+    </filter>`;
+
+  // Peaks carry the ink; it fades out toward the base, where mist takes over.
+  // The fade always finishes above the SVG's bottom edge, so lifting a layer
+  // on scroll never exposes a hard cut.
+  const range = (id, o) => `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice">
+      <defs>${brush("f-" + id, o.freq, o.disp, o.blur)}
+        <linearGradient id="g-${id}" gradientUnits="userSpaceOnUse" x1="0" y1="${o.base - o.height}" x2="0" y2="${Math.min(o.base + 30, H - 60)}">
+          <stop offset="0" stop-color="currentColor" stop-opacity="${o.ink}"/>
+          <stop offset=".55" stop-color="currentColor" stop-opacity="${o.ink * 0.55}"/>
+          <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+        </linearGradient></defs>
+      <path d="${ridge(o)}" fill="url(#g-${id})" filter="url(#f-${id})"/>
+      ${o.extra || ""}
+    </svg>`;
+
+  // A small flight near the sun, up in the sky and clear of the search controls.
+  const birds = [[1010, 150], [1040, 136], [1062, 158], [1330, 120]].map(([x, y], i) => {
+    const s = 7 + (i % 2) * 3;
+    return `<path d="M${x - s},${y - s * 0.5} Q${x - s * 0.4},${y - s * 0.7} ${x},${y} Q${x + s * 0.4},${y - s * 0.7} ${x + s},${y - s * 0.5}" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.6" stroke-linecap="round"/>`;
+  }).join("");
+
+  const layers = [
+    { depth: 0.02, html: `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice"><defs><filter id="f-sun"><feGaussianBlur stdDeviation="1.5"/></filter></defs><circle class="sun" cx="1190" cy="230" r="64" fill="currentColor" fill-opacity=".1" filter="url(#f-sun)"/></svg>` },
+    { depth: 0.04, html: range("far", { base: 640, peaks: 8, height: 330, width: 95, jag: 10, ink: 0.11, freq: "0.012 0.05", disp: 10, blur: 2.4, extra: birds }) },
+    { depth: 0.07, html: `<div class="mist" style="top:58%"></div>` },
+    { depth: 0.09, html: range("mid", { base: 780, peaks: 6, height: 300, width: 130, jag: 14, ink: 0.15, freq: "0.02 0.09", disp: 14, blur: 0.6 }) },
+    { depth: 0.11, html: `<div class="mist m2" style="top:74%"></div>` },
+    { depth: 0.15, html: range("near", { base: 905, peaks: 4, height: 230, width: 210, jag: 18, ink: 0.2, freq: "0.03 0.12", disp: 18, blur: 0 }) },
+    { depth: 0.05, html: `<div class="inscription"><span lang="zh">言外之意</span><i lang="zh">译</i></div>` },
+    { depth: 0, html: `<svg class="grain" width="100%" height="100%"><filter id="f-grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .08 0"/></filter><rect width="100%" height="100%" filter="url(#f-grain)"/></svg>` },
+  ];
+  root.innerHTML = layers.map(l => `<div class="layer" data-depth="${l.depth}">${l.html}</div>`).join("");
+
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const els = [...root.querySelectorAll(".layer")].map(el => [el, Number(el.dataset.depth)]);
+  let px = 0, py = 0, queued = false;
+  const paint = () => {
+    queued = false;
+    const sy = Math.min(window.scrollY, 2400);
+    for (const [el, d] of els) {
+      if (!d) continue;
+      el.style.transform = `translate3d(${(px * d * 160).toFixed(1)}px, ${(-sy * d + py * d * 90).toFixed(1)}px, 0)`;
+    }
+  };
+  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(paint); } };
+  window.addEventListener("scroll", queue, { passive: true });
+  window.addEventListener("pointermove", e => {
+    if (e.pointerType !== "mouse") return;
+    px = e.clientX / innerWidth - 0.5; py = e.clientY / innerHeight - 0.5; queue();
+  }, { passive: true });
+  paint();
+}
+buildScenery();
+
 loadCounts().then(s => { if (s && s.meaning === 0) { setMode("db"); run("db", "", { push: false }); } else fromHash(); });
 </script>
 </body>
