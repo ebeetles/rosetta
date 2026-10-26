@@ -21,7 +21,7 @@ LANG_STYLE = {"zh": "bold #c8442f", "en": "bold #2f5d8a"}
 DIM = "#8a8170"
 
 COMMANDS = [
-    ("build", "Download, clean, and embed both datasets (one time; skips what's stored)"),
+    ("build", "Download, clean, embed, and add pinyin + English  [--no-translate]"),
     ("find <description>", "Idioms that fit a plain-language description  [--lang zh|en] [-k N]"),
     ("equiv <idiom>", "Top 5 equivalents in the other language"),
     ("compare <idiom>", "Nearest by the idiom's words vs. nearest by its meaning"),
@@ -54,6 +54,10 @@ def headline(record: dict) -> None:
     line.append("  —  ", style=DIM)
     line.append(record["meaning"])
     console.print(Padding(line, (1, 0, 0, 0)))
+    if record.get("idiom_en"):
+        english = Text(f"literally “{record['idiom_en']}”", style=f"italic {DIM}")
+        english.append(f"  ·  {record.get('meaning_en', '')}", style=DIM)
+        console.print(english)
 
 
 def results_table(hits: list[dict], show_lang: bool = False) -> Table:
@@ -105,7 +109,37 @@ def cmd_build(args) -> None:
         added = db.build(records, progress=lambda n: progress.advance(task, n))
     elapsed = time.perf_counter() - start
     console.print(f"Added {added:,} idioms in {elapsed:.1f}s.")
+    run_enrich(translate_too=not args.no_translate)
     cmd_stats(args)
+
+
+def run_enrich(ids: list[str] | None = None, translate_too: bool = True) -> None:
+    """Pinyin and English for Chinese entries that lack them (see enrich.py)."""
+    from .enrich import enrich
+
+    with Progress(
+        TextColumn("  {task.description}"),
+        BarColumn(complete_style="#2f5d8a"),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        transient=ids is not None,
+    ) as progress:
+        tasks = {}
+
+        def update(phase: str, done: int, total: int) -> None:
+            label = "pinyin" if phase == "pinyin" else "English (Claude)"
+            if phase not in tasks:
+                tasks[phase] = progress.add_task(label, total=total)
+            progress.update(tasks[phase], completed=done, total=total)
+
+        summary = enrich(ids=ids, translate_too=translate_too, progress=update)
+    if ids is None:
+        console.print(
+            f"Filled in pinyin for {summary['pinyin']:,} and English for {summary['english']:,} Chinese idioms."
+        )
+    if summary["skipped"]:
+        console.print(f"[{DIM}]{summary['skipped']}[/]")
 
 
 def cmd_find(args) -> None:
@@ -151,7 +185,7 @@ def cmd_add(args=None, prefill: str = "") -> dict | None:
         console.print(f"  [{DIM}]A meaning is required; nothing saved.[/]")
         return None
     example = Prompt.ask("  Example (optional)", default="")
-    pinyin = Prompt.ask("  Pinyin (optional)", default="") if lang == "zh" else ""
+    pinyin = Prompt.ask("  Pinyin (optional, filled in if blank)", default="") if lang == "zh" else ""
 
     nearest = db.nearest_meanings(gloss, k=3)
     if nearest:
@@ -173,6 +207,9 @@ def cmd_add(args=None, prefill: str = "") -> dict | None:
                 return None
     saved = db.add(idiom, lang, gloss, example, pinyin)
     console.print(f"  Saved {saved['idiom']}. It's searchable now.")
+    if lang == "zh":
+        run_enrich(ids=[saved["id"]])
+        saved = db.get(saved["idiom"]) or saved
     return saved
 
 
@@ -204,7 +241,10 @@ def cmd_stats(args=None) -> None:
     table.add_row(Text("Chinese (zh)", style=LANG_STYLE["zh"]), f"{s['zh']:,}")
     table.add_row(Text("English (en)", style=LANG_STYLE["en"]), f"{s['en']:,}")
     table.add_row("added by you", f"{s['user']:,}")
-    table.add_row("stored in", str(db.DB_PATH.relative_to(db.ROOT)) + "/")
+    table.add_row("zh with pinyin", f"{s['zh_pinyin']:,}")
+    table.add_row("zh with English", f"{s['zh_english']:,}")
+    table.add_row("models", s["models"])
+    table.add_row("stored in", s["path"])
     console.print(Padding(table, (1, 0, 1, 2)))
 
 
@@ -240,7 +280,9 @@ def make_parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="python -m rosetta", add_help=False)
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("build").set_defaults(fn=cmd_build)
+    p = sub.add_parser("build")
+    p.add_argument("--no-translate", action="store_true")
+    p.set_defaults(fn=cmd_build)
     p = sub.add_parser("find")
     p.add_argument("text", nargs="+")
     p.add_argument("--lang", choices=["zh", "en"])

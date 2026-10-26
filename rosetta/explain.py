@@ -28,11 +28,15 @@ class ExplainUnavailable(Exception):
     """Raised with a one-line, user-facing reason when explain can't run."""
 
 
-def _client():
+def has_key() -> bool:
     load_dotenv(ROOT / ".env")
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+
+def claude_client(feature: str = "explain"):
+    if not has_key():
         raise ExplainUnavailable(
-            "explain needs ANTHROPIC_API_KEY; copy .env.example to .env and add your key."
+            f"{feature} needs ANTHROPIC_API_KEY; copy .env.example to .env and add your key."
         )
     import anthropic
 
@@ -53,7 +57,7 @@ def _prompt(record: dict, matches: list[dict]) -> str:
 def explain(record: dict, matches: list[dict]) -> str:
     import anthropic
 
-    client = _client()
+    client = claude_client()
     try:
         response = client.beta.messages.create(
             model=MODEL,

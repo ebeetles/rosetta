@@ -133,6 +133,17 @@ def add(idiom: str, lang: str, gloss: str, example: str = "", pinyin: str = "") 
     return {**meta, "id": record["id"]}
 
 
+def update_metadata(patches: dict[str, dict]) -> None:
+    """Merge metadata fields into existing records in both collections. No re-embedding."""
+    ids = list(patches)
+    for start in range(0, len(ids), BATCH_SIZE):
+        batch = ids[start : start + BATCH_SIZE]
+        current = meaning().get(ids=batch, include=["metadatas"])
+        merged = [{**meta, **patches[rid]} for rid, meta in zip(current["ids"], current["metadatas"])]
+        literal().update(ids=current["ids"], metadatas=merged)
+        meaning().update(ids=current["ids"], metadatas=merged)
+
+
 # ---------------------------------------------------------------- reads
 
 
@@ -200,5 +211,10 @@ def stats() -> dict:
     for lang in LANGS:
         out[lang] = len(meaning().get(where={"lang": lang}, include=[])["ids"])
     out["user"] = len(meaning().get(where={"source": "user"}, include=[])["ids"])
+    zh = meaning().get(where={"lang": "zh"}, include=["metadatas"])["metadatas"]
+    out["zh_pinyin"] = sum(1 for m in zh if m.get("meaning_pinyin"))
+    out["zh_english"] = sum(1 for m in zh if m.get("idiom_en"))
+    out["models"] = models_label()
+    out["path"] = str(DB_PATH.relative_to(ROOT)) + "/"
     return out
 

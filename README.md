@@ -64,7 +64,11 @@ Then build the database once:
 python -m rosetta build
 ```
 
-`build` downloads the Xinhua idiom list from GitHub (10 MB), reads the English idioms from the `englishidioms` package, cleans both into `data/clean/{zh,en}.jsonl`, and embeds them into `chroma_db/`. The first run also downloads the two embedding models from Hugging Face, about **4.5 GB** in total. After that, embedding the 4,000 idioms takes under a minute on an Apple-silicon laptop. Rerunning `build` is safe: it skips anything already stored.
+`build` downloads the Xinhua idiom list from GitHub (10 MB), reads the English idioms from the `englishidioms` package, cleans both into `data/clean/{zh,en}.jsonl`, and embeds them into `chroma_db/`. The first run also downloads the two embedding models from Hugging Face, about **4.5 GB** in total. After that, embedding the 4,000 idioms takes under a minute on an Apple-silicon laptop.
+
+`build` then adds pinyin and English to every Chinese idiom (see [Pinyin and English](#pinyin-and-english)). Pinyin is computed offline. English translations come from Claude and need an API key; without one, `build` adds pinyin only and says so. Add `--no-translate` to skip translation even when a key is set.
+
+Rerunning `build` is safe: it skips anything already stored, embedded, or translated.
 
 For a much smaller download (about 470 MB), use the original model. It scores lower (3/10), but every command works the same:
 
@@ -95,13 +99,13 @@ rosetta› equiv 易如反掌
 
 | Command | What it does |
 | --- | --- |
-| `build` | Download, clean, and embed both datasets. Skips what's already stored. |
+| `build [--no-translate]` | Download, clean, and embed both datasets, then add pinyin and English to Chinese idioms. Skips what's already done. |
 | `find <description> [--lang zh\|en] [-k N]` | Idioms whose meaning fits a plain-language description, in either language |
 | `equiv <idiom> [-k N]` | The closest idioms in the other language, with meanings and distances |
 | `compare <idiom> [-k N]` | Two columns: nearest by the idiom's words vs. nearest by its meaning |
-| `add` | Prompts for an idiom, language, meaning, and optional example. Shows the closest existing meanings first and asks before saving a likely duplicate (exact name match, or cosine distance below 0.1). |
+| `add` | Prompts for an idiom, language, meaning, and optional example and pinyin. Shows the closest existing meanings first and asks before saving a likely duplicate (exact name match, or cosine distance below 0.1). New Chinese idioms get pinyin, and English if a key is set. |
 | `explain <idiom>` | Sends the `equiv` results to Claude, which says which match is closest and how the others differ |
-| `stats` | Counts per collection and language, and how many idioms you've added |
+| `stats` | Counts per collection and language, how many idioms you've added, pinyin and English coverage, and the embedding models |
 | `serve [--port 8000]` | Starts the web front end |
 
 Distances are cosine distances: 0 means the same, 1 means unrelated. If you `equiv` an idiom that isn't stored, Rosetta offers to `add` it instead of guessing.
@@ -114,17 +118,30 @@ Distances are cosine distances: 0 means the same, 1 means unrelated. If you `equ
 python -m rosetta serve
 ```
 
-Then open http://127.0.0.1:8000. It has the same four actions (words vs. meaning, equivalents, describe a situation, add an idiom) on top of the same `db.py`, so anything you add in the shell shows up on the web and vice versa. Run either the shell or the server against `chroma_db/` at one time, not both.
+Then open http://127.0.0.1:8000. It runs on the same `db.py` as the shell, so anything you add in one shows up in the other. It covers every CLI command:
 
-### explain (optional)
+| CLI | Web |
+| --- | --- |
+| `compare`, `equiv`, `find`, `add` | The four tabs under the search box. `find`'s `--lang` is the Both / 中文 / English filter. |
+| `-k N` | The **Results** menu (auto uses each command's default) |
+| `explain` | **Ask Claude how these differ** under the equivalents list |
+| `stats`, `build` | The **Database** page, linked from the counts in the header: counts, pinyin and English coverage, models, storage path, and a **Run build** button with live progress. A fresh install with an empty database opens here. |
 
-`explain` uses Claude (`claude-opus-5-5`) through the Anthropic API. Copy `.env.example` to `.env` and add your key:
+Every Chinese idiom shows its pinyin, a literal English rendering of the idiom, and its explanation with pinyin and an English translation. The **Show: Pinyin / English** toggles hide either one; the choice is remembered in your browser.
+
+Run either the shell or the server against `chroma_db/` at one time, not both. After pulling new code, restart the server to pick it up.
+
+### Claude features (optional)
+
+Two features use Claude (`claude-opus-5-5`) through the Anthropic API: `explain`, and the English translations of Chinese idioms. Copy `.env.example` to `.env` and add your key:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Without a key, `explain` prints a one-line message and everything else works as normal.
+Without a key, `explain` prints a one-line message, Chinese idioms show pinyin but no English, and everything else works as normal.
+
+Translating all 2,000 chengyu takes about 50 requests of 40 idioms each, run 4 at a time, and costs roughly $3 the first time. Results are cached in `data/translations.json`, so later builds, and rebuilds from scratch, don't pay again.
 
 ## How it works
 
@@ -149,6 +166,19 @@ Both collections hold the same ids and metadata (`lang`, `idiom`, `meaning`, `ex
 
 Two substitutions in the eval pairs, because the original idioms aren't in the English dataset: 守口如瓶 is paired with "my lips are sealed" instead of "keep one's lips sealed", and 亡羊补牢's false friend is "too little, too late" instead of "lock the barn door after the horse is stolen".
 
+### Pinyin and English
+
+Chinese entries carry four extra metadata fields, filled in by [`rosetta/enrich.py`](rosetta/enrich.py) after embedding:
+
+| Field | Example | Source |
+| --- | --- | --- |
+| `pinyin` | huà shé tiān zú | Xinhua; `pypinyin` for idioms you add |
+| `meaning_pinyin` | bǐ yù zuò le duō yú de shì, … | `pypinyin` |
+| `idiom_en` | draw a snake and add feet | Claude: the idiom's literal picture |
+| `meaning_en` | to do something superfluous that, far from helping, makes things worse | Claude: the explanation, as a dictionary gloss |
+
+These are display-only. They're written with a metadata update, so nothing is re-embedded, and the meaning collection still embeds the Chinese explanation: search results and the eval numbers don't change. A free local translation model (`Helsinki-NLP/opus-mt-zh-en`) was tried first and rejected: it rendered 九牛一毛 as "Nine cents" and 班门弄斧 as "Benson makes axes".
+
 ### Reproduce the eval
 
 ```bash
@@ -168,7 +198,8 @@ rosetta/
   data.py       download + clean both datasets
   embed.py      the embedding models (names live only here)
   db.py         PersistentClient, the two collections, query helpers
-  explain.py    optional Claude call
+  enrich.py     pinyin and English for Chinese idioms
+  explain.py    optional Claude call, and the shared API key check
   web.py        FastAPI app for the web front end
 web/index.html  the web front end
 eval/           test pairs and the Phase 3 check
