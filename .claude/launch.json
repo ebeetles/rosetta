@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rosetta-web",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "rosetta", "serve", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

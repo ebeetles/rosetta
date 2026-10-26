@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Idiom Rosetta</title>
+<meta name="description" content="Match Chinese and English idioms by what they mean, not what they say.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Ma+Shan+Zheng&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@600;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #e3e8df;
+  --paper-raised: #edf1ea;
+  --paper-sunk: #d5dcd1;
+  --ink: #18201b;
+  --ink-soft: #4d5a51;
+  --ink-faint: #7f8b82;
+  --rule: #b8c3b5;
+  --zh: #c23a22;
+  --zh-wash: #c23a2218;
+  --en: #2741a8;
+  --en-wash: #2741a818;
+  --focus: #2741a8;
+
+  --f-brush: "Ma Shan Zheng", "Noto Serif SC", serif;
+  --f-zh: "Noto Serif SC", serif;
+  --f-en: "Newsreader", Georgia, serif;
+  --f-body: "Hanken Grotesk", "Noto Sans SC", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --gutter: clamp(16px, 4vw, 48px);
+  --max: 1120px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111613; --paper-raised: #182019; --paper-sunk: #0b0f0c;
+    --ink: #e2e8df; --ink-soft: #a9b5ab; --ink-faint: #75827a; --rule: #2c362f;
+    --zh: #f0694c; --zh-wash: #f0694c22; --en: #8ea4ff; --en-wash: #8ea4ff22; --focus: #8ea4ff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111613; --paper-raised: #182019; --paper-sunk: #0b0f0c;
+  --ink: #e2e8df; --ink-soft: #a9b5ab; --ink-faint: #75827a; --rule: #2c362f;
+  --zh: #f0694c; --zh-wash: #f0694c22; --en: #8ea4ff; --en-wash: #8ea4ff22; --focus: #8ea4ff;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.55 var(--f-body);
+  min-height: 100vh;
+}
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
+[hidden] { display: none !important; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- language marks: color carries the language everywhere ---------- */
+.zh { color: var(--zh); font-family: var(--f-zh); font-weight: 600; letter-spacing: .04em; }
+.en { color: var(--en); font-family: var(--f-en); font-style: italic; font-weight: 500; }
+
+/* ---------- header ---------- */
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px 18px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.seal {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  background: var(--zh); color: var(--paper); border-radius: 4px;
+  font: 400 22px/1 var(--f-brush); transform: rotate(-4deg);
+  box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--zh);
+}
+.brand b { font-weight: 600; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+.counts { font: 400 13px/1.4 var(--f-mono); color: var(--ink-faint); display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.counts .k-zh { color: var(--zh); } .counts .k-en { color: var(--en); }
+
+/* ---------- search ---------- */
+.search { padding: 8px 0 0; }
+.prompt-line { font-size: 15px; color: var(--ink-soft); margin: 0 0 10px; max-width: 60ch; }
+.field {
+  display: flex; align-items: stretch;
+  border-bottom: 2px solid var(--ink);
+  transition: border-color .2s;
+}
+.field:focus-within { border-color: var(--focus); }
+.field input {
+  flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 0 12px;
+  font: 400 clamp(24px, 4vw, 34px)/1.2 var(--f-en);
+  outline: none;
+}
+.field input::placeholder { color: var(--ink-faint); font-style: italic; }
+.go {
+  border: 0; background: none; cursor: pointer; padding: 0 0 0 16px;
+  font: 600 14px/1 var(--f-body); color: var(--ink); white-space: nowrap;
+  display: flex; align-items: center; gap: 8px;
+}
+.go:hover { color: var(--focus); }
+.go kbd { font: 400 11px/1 var(--f-mono); border: 1px solid var(--rule); border-radius: 3px; padding: 3px 5px; color: var(--ink-faint); }
+
+.modes { display: flex; gap: 4px; flex-wrap: wrap; margin: 14px 0 0; }
+.mode {
+  border: 1px solid transparent; background: none; cursor: pointer;
+  padding: 7px 12px; border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--ink-soft);
+}
+.mode:hover { color: var(--ink); background: var(--paper-sunk); }
+.mode[aria-pressed="true"] { color: var(--paper); background: var(--ink); }
+.subrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; min-height: 30px; }
+.tries { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: baseline; font-size: 14px; color: var(--ink-faint); }
+.try { border: 0; background: none; padding: 0; cursor: pointer; font-size: 16px; border-bottom: 1px dotted currentColor; }
+.try.zh { font-size: 15px; }
+.langs { display: flex; gap: 2px; font-size: 13px; }
+.langs button { border: 1px solid var(--rule); background: none; padding: 4px 10px; cursor: pointer; color: var(--ink-soft); }
+.langs button:first-child { border-radius: 999px 0 0 999px; }
+.langs button:last-child { border-radius: 0 999px 999px 0; }
+.langs button[aria-pressed="true"] { background: var(--paper-sunk); color: var(--ink); border-color: var(--ink-faint); }
+
+/* ---------- stage ---------- */
+.stage { padding: 40px 0 72px; min-height: 50vh; transition: opacity .2s; }
+.stage[aria-busy="true"] { opacity: .45; }
+
+.hero { text-align: center; margin: 0 auto 36px; max-width: 760px; }
+.hero .glyphs {
+  font: 400 clamp(64px, 13vw, 132px)/1.05 var(--f-brush);
+  color: var(--ink); letter-spacing: .04em; margin: 0;
+  display: inline-flex; gap: .02em;
+}
+.hero .glyphs span { display: inline-block; }
+.hero .phrase { font: italic 400 clamp(40px, 7vw, 76px)/1.05 var(--f-en); color: var(--ink); margin: 0; letter-spacing: -.015em; }
+.hero .pinyin { font: italic 400 18px/1.4 var(--f-en); color: var(--ink-soft); margin: 10px 0 0; letter-spacing: .02em; }
+.hero .gloss { font-size: 17px; color: var(--ink); margin: 14px auto 0; max-width: 52ch; }
+.hero .lang-tag { font: 500 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 14px; display: block; }
+.hero .lang-tag.t-zh { color: var(--zh); } .hero .lang-tag.t-en { color: var(--en); }
+.hero .example { font-size: 14px; color: var(--ink-faint); margin: 10px auto 0; max-width: 60ch; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ink-in span, .ink-in.phrase { animation: ink .9s cubic-bezier(.2,.7,.2,1) both; }
+  .ink-in span:nth-child(2) { animation-delay: .12s; }
+  .ink-in span:nth-child(3) { animation-delay: .24s; }
+  .ink-in span:nth-child(4) { animation-delay: .36s; }
+  .ink-in span:nth-child(n+5) { animation-delay: .48s; }
+  @keyframes ink { from { opacity: 0; filter: blur(6px); transform: translateY(4px) scale(1.04); } to { opacity: 1; filter: none; transform: none; } }
+}
+
+/* ---------- the fork (compare) ---------- */
+.fork { display: grid; grid-template-columns: 1fr 1fr; position: relative; }
+.fork::before {
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--rule);
+}
+.fork .side { padding: 0 32px; }
+.fork .side:first-child { padding-left: 0; }
+.fork .side:last-child { padding-right: 0; }
+.side h2 { font: 600 13px/1.2 var(--f-body); letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.side .how { font-size: 14px; color: var(--ink-faint); margin: 4px 0 18px; }
+.fork-split {
+  display: grid; grid-template-columns: 1fr 1fr; height: 28px; margin: -10px 0 18px; position: relative;
+}
+.fork-split svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+.rows { list-style: none; margin: 0; padding: 0; }
+.row {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; align-items: baseline;
+  padding: 12px 0; border-top: 1px solid var(--rule);
+}
+.row:last-child { border-bottom: 1px solid var(--rule); }
+.row .name { font-size: 21px; line-height: 1.25; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; }
+.row .name:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.row .name .zh-plain { color: var(--ink); }
+.row .d { font: 400 13px/1 var(--f-mono); color: var(--ink-soft); }
+.row .meaning { grid-column: 1 / -1; font-size: 14px; color: var(--ink-soft); margin: 2px 0 0; }
+.row .meter { grid-column: 1 / -1; height: 3px; background: var(--paper-sunk); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.row .meter i { display: block; height: 100%; border-radius: 2px; transform-origin: left; }
+.row.l-zh .meter i { background: var(--zh); }
+.row.l-en .meter i { background: var(--en); }
+@media (prefers-reduced-motion: no-preference) {
+  .row .meter i { animation: grow .7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i, 0) * 60ms + .2s); }
+  @keyframes grow { from { transform: scaleX(0); } }
+}
+.hl { color: var(--zh); background: var(--zh-wash); border-radius: 2px; padding: 0 .04em; }
+.hl-en { color: var(--en); background: var(--en-wash); border-radius: 2px; padding: 0 .1em; font-style: italic; }
+.lang-chip { font: 500 10px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; margin-left: 8px; vertical-align: 3px; }
+.lang-chip.c-zh { color: var(--zh); } .lang-chip.c-en { color: var(--en); }
+
+/* ---------- equivalents ---------- */
+.equiv { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: start; }
+.equiv .hero { text-align: left; margin: 0; position: sticky; top: 24px; }
+.equiv .hero .glyphs { font-size: clamp(64px, 9vw, 112px); }
+.equiv .hero .gloss, .equiv .hero .example { margin-left: 0; }
+.list-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; gap: 12px; }
+.list-head h2 { font: 600 13px/1.2 var(--f-body); letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.list-head span { font: 400 12px/1.2 var(--f-mono); color: var(--ink-faint); }
+.row .rank { font: 400 13px/1 var(--f-mono); color: var(--ink-faint); margin-right: 10px; }
+
+.claude { margin-top: 28px; }
+.btn {
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer;
+  padding: 10px 16px; border-radius: 6px; font-weight: 600; font-size: 14px;
+}
+.btn:hover { background: var(--focus); border-color: var(--focus); }
+.btn.ghost { background: none; color: var(--ink); }
+.btn.ghost:hover { background: var(--paper-sunk); color: var(--ink); border-color: var(--ink); }
+.btn[disabled] { opacity: .5; cursor: progress; }
+.note {
+  margin-top: 16px; padding: 18px 20px; background: var(--paper-raised); border-left: 3px solid var(--en);
+  font-size: 15px; white-space: pre-wrap; border-radius: 0 6px 6px 0;
+}
+.note.muted { border-left-color: var(--ink-faint); color: var(--ink-soft); }
+
+/* ---------- describe ---------- */
+.describe-head { margin: 0 0 22px; font: italic 400 clamp(24px, 3.4vw, 32px)/1.25 var(--f-en); max-width: 30ch; }
+.describe-head small { display: block; font: 400 13px/1.4 var(--f-mono); color: var(--ink-faint); font-style: normal; margin-top: 8px; }
+.describe-rows { max-width: 760px; }
+
+/* ---------- add ---------- */
+.addform { max-width: 640px; display: grid; gap: 18px; }
+.addform h2 { font: italic 400 30px/1.2 var(--f-en); margin: 0; }
+.addform p.lede { margin: -8px 0 4px; color: var(--ink-soft); font-size: 15px; }
+.f { display: grid; gap: 6px; }
+.f label { font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+.f label span { font-weight: 400; color: var(--ink-faint); }
+.f input, .f textarea {
+  width: 100%; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; font-size: 16px;
+}
+.f input:focus, .f textarea:focus { border-color: var(--focus); outline: none; box-shadow: 0 0 0 3px var(--en-wash); }
+.f textarea { min-height: 80px; resize: vertical; }
+.f .lang-pick { display: flex; gap: 8px; }
+.f .lang-pick button { flex: 0 0 auto; border: 1px solid var(--rule); background: var(--paper-raised); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+.f .lang-pick button[aria-pressed="true"].p-zh { border-color: var(--zh); color: var(--zh); box-shadow: inset 0 0 0 1px var(--zh); }
+.f .lang-pick button[aria-pressed="true"].p-en { border-color: var(--en); color: var(--en); box-shadow: inset 0 0 0 1px var(--en); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.dupe { padding: 16px 18px; border: 1px solid var(--zh); border-radius: 6px; background: var(--zh-wash); }
+.dupe p { margin: 0 0 10px; }
+.saved { padding: 16px 18px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper-raised); }
+.saved p { margin: 0 0 12px; }
+
+/* ---------- empty / error ---------- */
+.empty { max-width: 560px; margin: 24px auto; text-align: center; color: var(--ink-soft); }
+.empty .big { font: italic 400 26px/1.3 var(--f-en); color: var(--ink); margin: 0 0 8px; }
+.empty .actions { justify-content: center; margin-top: 16px; }
+
+footer { border-top: 1px solid var(--rule); padding: 18px 0 28px; font-size: 13px; color: var(--ink-faint); }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+/* ---------- small screens ---------- */
+@media (max-width: 760px) {
+  .fork { grid-template-columns: 1fr; gap: 40px; }
+  .fork::before, .fork-split { display: none; }
+  .fork .side { padding: 0; }
+  .equiv { grid-template-columns: 1fr; gap: 28px; }
+  .equiv .hero { position: static; }
+  .two { grid-template-columns: 1fr; }
+  .go kbd { display: none; }
+  .stage { padding-top: 28px; }
+}
+</style>
+</head>
+<body>
+<header class="wrap masthead">
+  <a class="brand" href="#" aria-label="Idiom Rosetta, home">
+    <span class="seal" aria-hidden="true">译</span>
+    <b>Idiom Rosetta</b>
+  </a>
+  <div class="counts" id="counts" aria-live="polite"></div>
+</header>
+
+<main class="wrap">
+  <section class="search" aria-label="Search">
+    <p class="prompt-line" id="prompt-line">Type an idiom in Chinese or English to find what it means on the other side.</p>
+    <form class="field" id="form" role="search">
+      <label for="q" class="visually-hidden">Idiom or description</label>
+      <input id="q" name="q" autocomplete="off" spellcheck="false" placeholder="画蛇添足">
+      <button class="go" type="submit"><span id="go-label">Compare</span> <kbd>↵</kbd></button>
+    </form>
+    <div class="modes" role="group" aria-label="What to do with it">
+      <button class="mode" data-mode="compare">Words vs. meaning</button>
+      <button class="mode" data-mode="equiv">Equivalents</button>
+      <button class="mode" data-mode="find">Describe a situation</button>
+      <button class="mode" data-mode="add">Add an idiom</button>
+    </div>
+    <div class="subrow">
+      <div class="tries" id="tries"></div>
+      <div class="langs" id="langs" role="group" aria-label="Language filter" hidden>
+        <button data-lang="" aria-pressed="true">Both</button>
+        <button data-lang="zh" aria-pressed="false">中文</button>
+        <button data-lang="en" aria-pressed="false">English</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage" aria-live="polite"></section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Distances are cosine distances between embeddings: 0 means the same, 1 means unrelated.</span>
+    <span>Chinese from Xinhua · English from the McGraw-Hill Dictionary of American Idioms</span>
+  </div>
+</footer>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const stage = $("#stage"), input = $("#q");
+
+const MODES = {
+  compare: { go: "Compare", placeholder: "画蛇添足", prompt: "Type an idiom to see its nearest neighbors by its words and by its meaning.",
+    tries: ["画蛇添足", "对牛弹琴", "kill two birds with one stone", "九牛一毛"] },
+  equiv:   { go: "Find equivalents", placeholder: "九牛一毛", prompt: "Type an idiom in Chinese or English to find what it means on the other side.",
+    tries: ["九牛一毛", "易如反掌", "add fuel to the fire", "亡羊补牢"] },
+  find:    { go: "Search", placeholder: "a tiny amount compared to the whole", prompt: "Describe a situation in plain words, in either language, and get the idioms that fit it.",
+    tries: ["a tiny amount compared to the whole", "doing something unnecessary that ruins it", "说话谨慎，不泄露秘密"] },
+  add:     { go: "Start", placeholder: "对牛弹琴", prompt: "Add an idiom of your own. It's searchable as soon as it's saved.", tries: [] },
+};
+let mode = "compare", findLang = "";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const isZh = s => /[一-鿿]/.test(s);
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(body.detail || `Request failed (${res.status})`), { status: res.status });
+  return body;
+}
+
+/* ---------- header counts ---------- */
+async function loadCounts() {
+  try {
+    const s = await api("/api/stats");
+    $("#counts").innerHTML =
+      `<span class="k-zh">${s.zh.toLocaleString()} 中文</span><span class="k-en">${s.en.toLocaleString()} English</span><span>${s.user.toLocaleString()} added by you</span>`;
+  } catch { $("#counts").textContent = ""; }
+}
+
+/* ---------- rendering helpers ---------- */
+function heroHTML(r, { inkIn = true } = {}) {
+  const tag = `<span class="lang-tag t-${r.lang}">${r.lang === "zh" ? "Chinese · 成语" : "English idiom"}</span>`;
+  const head = r.lang === "zh"
+    ? `<h1 class="glyphs ${inkIn ? "ink-in" : ""}" lang="zh">${[...r.idiom].map(c => `<span>${esc(c)}</span>`).join("")}</h1>`
+    : `<h1 class="phrase ${inkIn ? "ink-in" : ""}">${esc(r.idiom)}</h1>`;
+  const pinyin = r.pinyin ? `<p class="pinyin">${esc(r.pinyin)}</p>` : "";
+  const ex = r.example ? `<p class="example">“${esc(r.example)}”</p>` : "";
+  return `${tag}${head}${pinyin}<p class="gloss" ${r.lang === "zh" ? 'lang="zh"' : ""}>${esc(r.meaning)}</p>${ex}`;
+}
+
+// Mark what a literal neighbor shares with the query: characters for zh, words for en.
+const STOP = new Set("a an the to of in on one one's someone something with for and or as at by be is it".split(" "));
+function marked(idiom, query) {
+  if (!query) return esc(idiom);
+  if (isZh(idiom) && isZh(query.idiom)) {
+    const chars = new Set([...query.idiom]);
+    return [...idiom].map(c => chars.has(c) ? `<span class="hl">${esc(c)}</span>` : esc(c)).join("");
+  }
+  if (!isZh(idiom) && !isZh(query.idiom)) {
+    const words = new Set(query.idiom.toLowerCase().split(/[^a-z']+/).filter(w => w && !STOP.has(w)));
+    return idiom.split(/(\s+)/).map(w => words.has(w.toLowerCase().replace(/[^a-z']/g, "")) ? `<span class="hl-en">${esc(w)}</span>` : esc(w)).join("");
+  }
+  return esc(idiom);
+}
+
+// Useful distances sit between 0 and ~0.6, so the meter spans that range.
+const meterWidth = d => Math.max(0.03, Math.min(1, 1 - d / 0.6));
+
+function rowHTML(h, i, { query = null, rank = false, chip = false, meaning = true } = {}) {
+  const strength = meterWidth(h.distance);
+  const name = query ? marked(h.idiom, query) : esc(h.idiom);
+  return `<li class="row l-${h.lang}" style="--i:${i}">
+    <button class="name ${h.lang}" data-idiom="${esc(h.idiom)}" ${h.lang === "zh" ? 'lang="zh"' : ""} title="Look up ${esc(h.idiom)}">${rank ? `<span class="rank">${i + 1}</span>` : ""}${name}${chip ? `<span class="lang-chip c-${h.lang}">${h.lang}</span>` : ""}</button>
+    <span class="d">${h.distance.toFixed(2)}</span>
+    ${meaning ? `<p class="meaning" ${h.lang === "zh" ? 'lang="zh"' : ""}>${esc(h.meaning)}</p>` : ""}
+    <div class="meter" aria-hidden="true"><i style="width:${(strength * 100).toFixed(1)}%"></i></div>
+  </li>`;
+}
+
+function emptyHTML(idiom) {
+  return `<div class="empty">
+    <p class="big">“${esc(idiom)}” isn't in the database yet.</p>
+    <p>Rosetta only knows the idioms it has stored. Add this one with its meaning and it's searchable right away.</p>
+    <div class="actions"><button class="btn" data-add="${esc(idiom)}">Add “${esc(idiom)}”</button></div>
+  </div>`;
+}
+
+function errorHTML(msg) {
+  return `<div class="empty"><p class="big">Something went wrong.</p><p>${esc(msg)}</p></div>`;
+}
+
+/* ---------- views ---------- */
+async function showCompare(idiom) {
+  const d = await api(`/api/compare?idiom=${encodeURIComponent(idiom)}`);
+  const q = d.idiom;
+  stage.innerHTML = `
+    <div class="hero">${heroHTML(q)}</div>
+    <div class="fork-split" aria-hidden="true">
+      <svg viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M50 0 V8 Q50 14 44 14 H25 Q20 14 20 20 V28 M50 8 Q50 14 56 14 H75 Q80 14 80 20 V28" fill="none" stroke="var(--rule)" stroke-width="1" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="fork">
+      <div class="side">
+        <h2>By its words</h2>
+        <p class="how">Nearest when the idiom's own ${q.lang === "zh" ? "characters" : "words"} are embedded. Shared ${q.lang === "zh" ? "characters" : "words"} are marked.</p>
+        <ul class="rows">${d.by_words.map((h, i) => rowHTML(h, i, { query: q, chip: true })).join("")}</ul>
+      </div>
+      <div class="side">
+        <h2>By its meaning</h2>
+        <p class="how">Nearest when its dictionary meaning is embedded, across both languages.</p>
+        <ul class="rows">${d.by_meaning.map((h, i) => rowHTML(h, i, { chip: true })).join("")}</ul>
+      </div>
+    </div>`;
+}
+
+async function showEquiv(idiom) {
+  const d = await api(`/api/equiv?idiom=${encodeURIComponent(idiom)}`);
+  const other = d.idiom.lang === "zh" ? "English" : "Chinese";
+  stage.innerHTML = `
+    <div class="equiv">
+      <div class="hero">${heroHTML(d.idiom)}</div>
+      <div>
+        <div class="list-head"><h2>Closest in ${other}</h2><span>cosine distance</span></div>
+        <ol class="rows">${d.results.map((h, i) => rowHTML(h, i, { rank: true })).join("")}</ol>
+        <div class="claude">
+          <button class="btn ghost" id="explain">Ask Claude how these differ</button>
+          <div id="note"></div>
+        </div>
+      </div>
+    </div>`;
+  $("#explain").addEventListener("click", async e => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = "Asking Claude…";
+    try {
+      const r = await api("/api/explain", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idiom: d.idiom.idiom }) });
+      $("#note").innerHTML = `<div class="note">${esc(r.note)}</div>`;
+      btn.remove();
+    } catch (err) {
+      $("#note").innerHTML = `<div class="note muted">${esc(err.message)}</div>`;
+      btn.disabled = false; btn.textContent = "Ask Claude how these differ";
+    }
+  });
+}
+
+async function showFind(text) {
+  const params = new URLSearchParams({ q: text, k: 10 });
+  if (findLang) params.set("lang", findLang);
+  const d = await api(`/api/find?${params}`);
+  stage.innerHTML = `
+    <div class="describe-rows">
+      <p class="describe-head">“${esc(text)}”<small>${findLang ? (findLang === "zh" ? "Chinese idioms only" : "English idioms only") : "Idioms in both languages"}, closest meaning first</small></p>
+      <ol class="rows">${d.results.map((h, i) => rowHTML(h, i, { rank: true, chip: !findLang })).join("")}</ol>
+    </div>`;
+}
+
+function showAdd(prefill = "") {
+  const lang = prefill ? (isZh(prefill) ? "zh" : "en") : "zh";
+  stage.innerHTML = `
+    <form class="addform" id="addform" novalidate>
+      <h2>Add an idiom</h2>
+      <p class="lede">Rosetta checks your meaning against what's stored before saving, so near-duplicates get flagged.</p>
+      <div class="f"><label for="a-idiom">Idiom</label><input id="a-idiom" required value="${esc(prefill)}" placeholder="对牛弹琴"></div>
+      <div class="f"><label id="a-lang-l">Language</label>
+        <div class="lang-pick" role="group" aria-labelledby="a-lang-l">
+          <button type="button" class="p-zh" data-l="zh" aria-pressed="${lang === "zh"}">中文 Chinese</button>
+          <button type="button" class="p-en" data-l="en" aria-pressed="${lang === "en"}">English</button>
+        </div></div>
+      <div class="f"><label for="a-meaning">Meaning</label><textarea id="a-meaning" required placeholder="比喻对不懂道理的人讲道理"></textarea></div>
+      <div class="two">
+        <div class="f" id="a-pinyin-f" ${lang === "zh" ? "" : "hidden"}><label for="a-pinyin">Pinyin <span>optional</span></label><input id="a-pinyin" placeholder="duì niú tán qín"></div>
+        <div class="f"><label for="a-example">Example <span>optional</span></label><input id="a-example"></div>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Check and save</button></div>
+      <div id="add-result" aria-live="polite"></div>
+    </form>`;
+  let chosen = lang;
+  const form = $("#addform");
+  form.querySelectorAll(".lang-pick button").forEach(b => b.addEventListener("click", () => {
+    chosen = b.dataset.l;
+    form.querySelectorAll(".lang-pick button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    $("#a-pinyin-f").hidden = chosen !== "zh";
+  }));
+  $("#a-idiom").addEventListener("input", e => {
+    const l = isZh(e.target.value) ? "zh" : (e.target.value ? "en" : chosen);
+    form.querySelector(`[data-l="${l}"]`).click();
+  });
+  const submit = async (force) => {
+    const body = { idiom: $("#a-idiom").value.trim(), lang: chosen, meaning: $("#a-meaning").value.trim(),
+      example: $("#a-example").value.trim(), pinyin: chosen === "zh" ? $("#a-pinyin").value.trim() : "", force };
+    const out = $("#add-result");
+    if (!body.idiom || !body.meaning) { out.innerHTML = `<div class="note muted">Fill in the idiom and its meaning to save it.</div>`; return; }
+    try {
+      const r = await api("/api/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const near = r.nearest.length ? `<ul class="rows">${r.nearest.map((h, i) => rowHTML(h, i, { chip: true })).join("")}</ul>` : "";
+      if (r.duplicate) {
+        const what = r.duplicate.exact ? "is already stored." : `has almost the same meaning (distance ${r.duplicate.distance.toFixed(2)}).`;
+        out.innerHTML = `<div class="dupe"><p><b class="${r.duplicate.lang}">${esc(r.duplicate.idiom)}</b> ${what}</p>${near}
+          <div class="actions" style="margin-top:12px"><button type="button" class="btn" id="force">Save anyway</button><button type="button" class="btn ghost" id="cancel">Don't save</button></div></div>`;
+        $("#force").onclick = () => submit(true);
+        $("#cancel").onclick = () => { out.innerHTML = ""; };
+      } else {
+        out.innerHTML = `<div class="saved"><p>Saved <b class="${r.saved.lang}">${esc(r.saved.idiom)}</b>. It's searchable now.</p>
+          <div class="actions"><button type="button" class="btn" data-go="equiv" data-idiom="${esc(r.saved.idiom)}">Find its equivalents</button>
+          <button type="button" class="btn ghost" data-go="find" data-idiom="${esc(r.saved.meaning)}">Search by its meaning</button></div>
+          ${near ? `<p style="margin:16px 0 6px;font-size:13px;color:var(--ink-faint)">Closest existing meanings</p>${near}` : ""}</div>`;
+        loadCounts();
+      }
+    } catch (err) { out.innerHTML = `<div class="note muted">${esc(err.message)}</div>`; }
+  };
+  form.addEventListener("submit", e => { e.preventDefault(); submit(false); });
+  (prefill ? $("#a-meaning") : $("#a-idiom")).focus();
+}
+
+/* ---------- control ---------- */
+function setMode(m, { keepInput = false } = {}) {
+  mode = m;
+  const cfg = MODES[m];
+  document.querySelectorAll(".mode").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === m));
+  $("#go-label").textContent = cfg.go;
+  input.placeholder = cfg.placeholder;
+  $("#prompt-line").textContent = cfg.prompt;
+  $("#langs").hidden = m !== "find";
+  $("#tries").innerHTML = cfg.tries.length
+    ? `<span>Try</span>${cfg.tries.map(t => `<button type="button" class="try ${isZh(t) ? "zh" : "en"}" data-try="${esc(t)}">${esc(t)}</button>`).join("")}`
+    : "";
+  if (!keepInput) input.value = "";
+}
+
+async function run(m, text, { push = true } = {}) {
+  text = (text || "").trim();
+  if (m !== mode) setMode(m, { keepInput: true });
+  if (m === "add") { input.value = text; showAdd(text); if (push) history.pushState(null, "", `#add${text ? "/" + encodeURIComponent(text) : ""}`); return; }
+  if (!text) { input.focus(); return; }
+  input.value = text;
+  if (push) history.pushState(null, "", `#${m}/${encodeURIComponent(text)}`);
+  stage.setAttribute("aria-busy", "true");
+  try {
+    if (m === "compare") await showCompare(text);
+    else if (m === "equiv") await showEquiv(text);
+    else await showFind(text);
+  } catch (err) {
+    stage.innerHTML = err.status === 404 ? emptyHTML(text) : errorHTML(err.message);
+  } finally {
+    stage.removeAttribute("aria-busy");
+  }
+  // Clicking a result lower down the page should land you on the new one.
+  if (window.scrollY > 120) window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+$("#form").addEventListener("submit", e => { e.preventDefault(); run(mode, input.value || (mode === "add" ? "" : input.placeholder)); });
+document.querySelectorAll(".mode").forEach(b => b.addEventListener("click", () => {
+  const text = input.value.trim();
+  setMode(b.dataset.mode, { keepInput: true });
+  if (b.dataset.mode === "add") run("add", text);
+  else if (text && b.dataset.mode !== "find" && !(text.length > 24 && !isZh(text))) run(b.dataset.mode, text);
+  else { stage.innerHTML = ""; input.focus(); }
+}));
+$("#langs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  findLang = b.dataset.lang;
+  $("#langs").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  if (input.value.trim()) run("find", input.value);
+});
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-try]");
+  if (t) return run(mode, t.dataset.try);
+  const n = e.target.closest("button.name[data-idiom]");
+  if (n) return run(mode === "find" || mode === "add" ? "equiv" : mode, n.dataset.idiom);
+  const a = e.target.closest("[data-add]");
+  if (a) return run("add", a.dataset.add);
+  const g = e.target.closest("[data-go]");
+  if (g) return run(g.dataset.go, g.dataset.idiom);
+});
+
+function fromHash() {
+  const [m, ...rest] = location.hash.slice(1).split("/");
+  const text = decodeURIComponent(rest.join("/"));
+  if (MODES[m]) { setMode(m); run(m, text || (m === "add" ? "" : MODES[m].placeholder), { push: false }); }
+  else { setMode("compare"); run("compare", "画蛇添足", { push: false }); }
+}
+window.addEventListener("popstate", fromHash);
+loadCounts();
+fromHash();
+</script>
+</body>
+</html>
