@@ -10,14 +10,14 @@ Idiom Rosetta is able to find idioms in both Chinese and English, given a descri
 
 ## What's in the database
 
-- **Sources:** Chinese chengyu from the [chinese-xinhua](https://github.com/pwxcoo/chinese-xinhua) dataset (30,895 entries), and English idioms from the [`englishidioms`](https://pypi.org/project/englishidioms/) package, which bundles 21,866 entries parsed from the *McGraw-Hill Dictionary of American Idioms and Phrasal Verbs*.
-- **One item = one idiom:** the idiom itself plus its dictionary meaning. Nothing is chunked, but entries are trimmed. For Chinese, I keep only the figurative part of the explanation, because Xinhua explanations usually start by describing the literal picture. For English, I keep only the sense marked `Fig.` (figurative), cut off at the first example sentence. I drop one- and two-word entries (mostly phrasal verbs) and keep only one of several variants that share a definition.
-- **How many:** 2,000 Chinese and 2,000 English idioms (4,000 items), sampled with a fixed seed. A short list of test and showcase idioms is always included. Each item is stored twice, in two collections with the same id: `literal` embeds the idiom's own words, and `meaning` embeds its definition. That's 8,000 vectors.
+- **Sources:** Chinese chengyu from [chinese-xinhua](https://github.com/pwxcoo/chinese-xinhua) (30,895 entries), and English idioms from [`englishidioms`](https://pypi.org/project/englishidioms/) (21,866 entries)
+- **Idiom pairings** Each entry includes the idiom itself plus its meaning.
+- **Actually included** 2,000 Chinese and 2,000 English idioms (4,000 items), sampled with a fixed seed.
 - **Metadata on each item:** `lang` (`zh`/`en`), `idiom`, `meaning`, `example`, `source` (`xinhua`, `mcgraw-hill`, or `user`), `pinyin`, and `key`, a normalized form used for lookups. Chinese items also carry `meaning_pinyin`, plus `idiom_en` (the literal picture in English) and `meaning_en` (the meaning in English), both translated by Claude. These are display-only and aren't embedded, so they don't affect search.
 
 ## How to add and search
 
-**Adding:** in the shell, type `add` and answer the prompts: idiom, language, meaning, and an optional example and pinyin. In the web UI, use the **Add an idiom** tab. Before saving, Rosetta embeds the new meaning and shows the three closest existing ones. If the idiom is already stored, or a meaning is nearly identical (cosine distance below 0.1), it asks before saving. Saved idioms go into both collections and show up in the very next search, with no rebuild. If you look up an idiom that isn't stored, it offers to add it.
+**Adding:** in the shell, type `add` and answer the prompts: idiom, language, meaning, and an optional example and pinyin. In the web UI, use the **Add an idiom** tab. Before saving, Rosetta embeds the new meaning and shows the three closest existing ones. If the idiom is already stored, or a meaning is nearly identical (cosine distance below 0.1), it asks before saving.
 
 **Searching:** there are four ways to search, each a tab in the web UI and a command in the shell.
 - `find "<description>"` describes a situation in either language and gets idioms from both. `--lang zh` or `--lang en` narrows it to one.
@@ -61,3 +61,81 @@ I used Claude chat to brainstorm ideas and settle on this final idea. Then I wor
 - Fonts from Google Fonts: Ma Shan Zheng, Noto Serif SC, Noto Sans SC, Newsreader, Hanken Grotesk, IBM Plex Mono.
 
 ---
+
+## AI-generated documentation
+
+*This section was written by Claude (Claude Code, Claude Opus 5.5) and checked against the code.*
+
+### Getting and loading the data
+
+Neither dataset is committed: `data/` and `chroma_db/` are gitignored. One command fetches, cleans, and loads both:
+
+- **Chinese:** `build` downloads `idiom.json` from [chinese-xinhua](https://github.com/pwxcoo/chinese-xinhua) on GitHub into `data/raw/` (10 MB). The download is skipped if the file is already there.
+- **English:** the idioms come inside the `englishidioms` pip package, which `requirements.txt` installs. `build` reads its `phrases.json` directly.
+- `build` cleans both into `data/clean/zh.jsonl` and `data/clean/en.jsonl` (2,000 idioms each, sampled with seed 42) and embeds them into `chroma_db/`. It then adds pinyin to every Chinese idiom, and English translations if an API key is set (see below).
+- Rerunning `build` is safe: anything already stored, embedded, or translated is skipped. The **Run build** button on the web UI's Database page does the same thing.
+
+### Vector database and embedding models
+
+- **Vector database:** [Chroma](https://www.trychroma.com/), as an embedded `PersistentClient` that saves to `chroma_db/`. There's no server to set up. It has two collections, `literal` (each idiom's own words) and `meaning` (its definition), both using cosine distance.
+- **Embedding models:** [`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3) and [`intfloat/multilingual-e5-large`](https://huggingface.co/intfloat/multilingual-e5-large), run locally through `sentence-transformers` and combined into one vector per text. Both map Chinese and English into the same space, which is what lets an English description find a Chinese idiom.
+- **First-run downloads:**
+  - Both models from Hugging Face, about **4.5 GB** in total, cached in `~/.cache/huggingface/` afterwards.
+  - The Xinhua file (10 MB).
+  - Installing `requirements.txt` pulls in PyTorch and the ~100 MB `englishidioms` package.
+  - The web page loads its fonts from Google Fonts.
+- **Smaller option:** before the first `build`, set `ROSETTA_MODELS=paraphrase-multilingual-MiniLM-L12-v2` for a ~470 MB model instead. It matches idioms across languages less accurately, but every command works the same. If you switch models later, delete `chroma_db/` and rebuild.
+- **Optional API key:** `explain` and the English translations of Chinese idioms use the Anthropic API. Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Translating all 2,000 Chinese idioms costs roughly $3 once; results are cached in `data/translations.json`. Without a key, everything else works, and Chinese idioms show pinyin but no English.
+
+### Install and run
+
+Requires Python 3.11 or newer.
+
+```bash
+git clone https://github.com/ebeetles/rosetta.git
+```
+
+```bash
+cd rosetta && python3 -m venv .venv && source .venv/bin/activate
+```
+
+```bash
+pip install -r requirements.txt
+```
+
+Build the database once. The first run includes the model download; after that, embedding takes about a minute.
+
+```bash
+python -m rosetta build
+```
+
+Open the interactive shell, where `help` lists the commands and `quit` exits:
+
+```bash
+python -m rosetta
+```
+
+Every command also runs one-shot:
+
+```bash
+python -m rosetta equiv 画蛇添足
+```
+
+Or start the web UI and open http://127.0.0.1:8000:
+
+```bash
+python -m rosetta serve
+```
+
+| Command | What it does |
+| --- | --- |
+| `build [--no-translate]` | Fetch, clean, and embed both datasets, then add pinyin and English |
+| `find "<description>" [--lang zh\|en] [-k N]` | Idioms that fit a description, in either language |
+| `equiv <idiom> [-k N]` | Closest idioms in the other language |
+| `compare <idiom> [-k N]` | Nearest by the idiom's words vs. by its meaning |
+| `add` | Add an idiom, with a near-duplicate check |
+| `explain <idiom>` | Claude compares the equivalents (needs an API key) |
+| `stats` | Counts per collection and language, and pinyin and English coverage |
+| `serve [--port N]` | Start the web UI |
+
+Run either the shell or the web server against `chroma_db/` at one time, not both.
