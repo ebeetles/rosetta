@@ -1,7 +1,5 @@
 # Prompt log: Idiom Rosetta
 
-> ✏️ **Note to self, delete before submitting.** The prompts in the code blocks are copied verbatim from my Claude Code session, typos included; don't edit them. Everything marked ✏️ is a draft or a gap for me to rewrite or fill in. The "What happened" notes were drafted by Claude from the session and need to be checked and put in my own words. Some messages were sent by clicking a suggested-reply button in the app rather than typed. Those are labelled, and the button text is quoted as sent.
-
 ## Tools and models
 
 
