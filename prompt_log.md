@@ -1,12 +1,8 @@
 # Prompt log: Idiom Rosetta
 
 ## Tools and models
-
-
-- **Planning:** [How I wrote the project spec, "Idiom Rosetta — Project Spec.md": by hand, or with which AI tool, and how much time it took.]
-- **Building:** Claude Code in the Claude desktop app (Code tab), running **Claude Opus 5.5**. It wrote and ran the code, the data experiments, and the tests, and used its built-in browser to check the web UI. I used it because it can run commands and test in a real browser, so I could debug step by step instead of copying code back and forth. Two Claude Code skills were loaded during the session: **frontend-design**, which I asked for in my first prompt, for the web UI, and **claude-api**, for the Anthropic SDK code.
-- **Inside the app:** the app calls **Claude Opus 5.5** through the Anthropic API for `explain` and to translate the 2,000 Chinese idioms into English. Search uses two local embedding models, `BAAI/bge-m3` and `intfloat/multilingual-e5-large`; these aren't chat assistants.
-- [Any other tools: ChatGPT, Copilot, etc., if used.]
+Claude chat (Opus 5.5 medium)
+Claude Code (Opus 5.5 High)
 
 ## Session log
 
@@ -144,4 +140,3 @@ Seems to work well so far. Here are the rest of the requirements for my assignme
 ```text
 Draft prompt_log.md with my verbatim prompts from this session, marking what I need to fill in or rewrite.
 ```
-*(Suggested-reply button.)*
